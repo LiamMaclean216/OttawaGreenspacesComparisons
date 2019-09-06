@@ -1,0 +1,73 @@
+/* -------------------------------------------------
+      Generic classes
+ -------------------------------------------------*/
+body{
+	font-family: Calibri;
+	background-color: white;
+	font-size: 1.0em;
+}
+input[type="image"]{
+	max-width: 47%;
+	transition: transform .2s;
+  	outline: solid 1px;
+}
+input[type="image"]:hover{
+	 transform: scale(1.03);
+	 outline: 1px;
+	 box-shadow: 0 0 5px 2px green;
+	 
+}
+input[type="image"]:active{
+	 outline: solid 15px green; 
+}
+ul p{
+  text-align: left;
+}
+li{
+	text-align: left;
+}
+/* -------------------------------------------------
+      Class selectors
+ -------------------------------------------------*/
+.round_box{
+	box-shadow: grey 3px 3px 0.3px;
+	border-radius: 5px;
+	border: solid;
+	margin: 10px;
+	padding: 10px;
+}
+.round_button{
+	height: 50px;
+	width: 25%;
+	font-size: 1em;
+	background-color: darkgrey;
+	border-radius: 8px;
+}
+.round_button:hover{
+	box-shadow: 4px 4px 5px grey;
+	background-color: rgb(100,100,100);
+	cursor: pointer;
+}
+.flex_around{
+	display: flex;
+	justify-content: space-around;
+	align-items: center;
+}
+/* -------------------------------------------------
+      ID selectors
+ -------------------------------------------------*/
+
+#presentation{
+	text-align: center;
+	background-color: red;
+}
+#equivalent{
+	min-width: 90px;
+}
+#goback{
+	min-width: 50px;
+}
+#bottom{
+	background-color: red;
+}
+}

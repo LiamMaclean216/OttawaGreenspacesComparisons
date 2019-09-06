@@ -1,0 +1,27 @@
+In this file are listed all the software, languages, packages that I have downloaded and used to make this project
+
+
+Developpement python
+====================
+
+keras : 2.2.5
+tensorflow : 1.14.0
+
+numpy:
+matplotlib
+progressbar
+mysqlconnector
+streetview
+osgeo
+pymapillary
+opencv
+Equirec
+
+Web interface
+=============
+mysql
+easyphp
+pycharm
+sublime text 3
+winscp
+azure microsoft

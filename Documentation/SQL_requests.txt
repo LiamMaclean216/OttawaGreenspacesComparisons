@@ -1,0 +1,35 @@
+SQL requests
+-------------
+
+
+1) Creation table images
+--------------------------
+
+CREATE TABLE `ottawa`.`imageswinter` ( `image_key` VARCHAR(26) NOT NULL , `filename` VARCHAR(200) NOT NULL , `latitude` DECIMAL(9,6) NOT NULL , `longitude` DECIMAL(9,6) NOT NULL , `datetime` DATETIME NOT NULL , PRIMARY KEY (`image_key`));
+
+2) Creation table duels
+--------------------------
+
+CREATE TABLE `ottawa`.`duels` ( `key1` VARCHAR(26) NOT NULL , `key2` VARCHAR(26) NOT NULL , `winner` VARCHAR(13) NOT NULL , `ip_address` VARCHAR(15) NOT NULL );
+
+3) Creation table users
+--------------------------
+CREATE TABLE `ottawa`.`users` ( `ip_address` VARCHAR(15) NOT NULL , `comparisons` SMALLINT(6) NOT NULL , PRIMARY KEY (`ip_address`));
+
+
+
+
+Others useful requests:
+
+If place is missing on azure storage account (Get an error when pushing to azure branch during deploiement) you need to remove images.
+To do so you have to remove them from the web app using ftp protocol and also to remove them from database.
+
+
+To check and remove an image containing the following string :
+SELECT * FROM table_name WHERE image_key LIKE "%string%";
+DELETE FROM table_name WHERE image_key LIKE "%string%";
+
+
+USE ottawa;
+SELECT COUNT(*) FROM duels_green;
+SELECT SUM(comparisons) FROM users;

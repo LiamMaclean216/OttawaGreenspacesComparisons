@@ -1,0 +1,59 @@
+Interface creation steps:
+=========================
+This file describes the steps to create a new comparison interface from the current existing ones.
+
+1) Copy/paste the 4 following files :
+==================================
+	- get_images_x.php  in php folder 
+	- interface_x.php   in php folder
+	- write_db_x.php    in php folder
+	- init_cross_x.js   in js folder
+
+
+2) Create a new table for comparisons with this SQL request:
+============================================================
+
+Update table name.
+	CREATE TABLE `ottawa`.`duels_question_x` ( `key1` VARCHAR(26) NOT NULL , `key2` VARCHAR(26) NOT NULL , `winner` VARCHAR(13) NOT NULL , `ip_address` VARCHAR(15) NOT NULL );
+
+
+3) Change in index.php:
+=======================
+
+	Add the link to the new interface:
+	<li><a href="./php/interface_x.php">Question x</a></li>
+
+4) Change in get_images_x.php:
+==============================
+
+- line 78, update table name:
+	$query = $conn->prepare("DELETE FROM duels_question_x WHERE key1 = ? AND key2 = ?");
+ 
+
+5) Change in interface_x.php:
+=============================
+
+- line 9, update link to js file:
+	<script src="../js/init_cross_x.js"></script>
+- lines 15 to 17: update question and explanations.
+
+
+6) Change in write_db_x.php: 
+============================
+
+- line 83, update table name:
+	$query = $conn->prepare("INSERT INTO duels_question_x(key1, key2, winner, ip_address) VALUES(?, ?, ?, ?)");
+
+
+7) Changes in init_cross_x.js:
+==============================
+
+- line 95, update name of get_address file:
+	xhr.open('GET', 'get_images_x.php?back=' + back 
+
+- line 101, update name of get_address file:
+	xhr.open('GET', 'get_images_x.php?back=' + back 
+
+- line 178, u^date name of write_db file:
+	  xhr.open('GET', 'write_db_1.php?'
+
