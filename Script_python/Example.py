@@ -47,8 +47,8 @@ from os.path import abspath
 
 PHOTO_DIR = abspath("Examples/Photos")
 LAYER_PATH = abspath("Examples/Shapefile/test.shp")
-MAP_KEY = "ZFRKMlpZeXV5NXl1QjVyYjhNb1ZYZzpmMzRjNDVjOWFmNTRiMDRm"
-GSV_KEY = "AIzaSyCxngCNpekr7kXA8ADCnsc4_ICk2vizeDo"
+MAP_KEY = ""
+GSV_KEY = ""
 
 d = Download(PHOTO_DIR, LAYER_PATH)
 d.download_mapillary(MAP_KEY)
