@@ -1,4 +1,4 @@
-In this file are listed all the software, languages, packages that I have downloaded and used to make this project
+In this file are listed all the softwares, languages, packages that I have downloaded and used to make this project
 
 
 Developpement python
@@ -17,11 +17,12 @@ pymapillary
 opencv
 Equirec
 
+pycharm
+
 Web interface
 =============
 mysql
 easyphp
-pycharm
 sublime text 3
 winscp
 azure microsoft
