@@ -19,7 +19,9 @@ import trueskill as tr
 from progressbar import ProgressBar
 from keras.models import load_model, model_from_json
 from keras import backend as bk
-from keras.optimizers import SGD
+#from keras.optimizers import SGD
+from tensorflow.keras.applications import VGG19
+from tensorflow.keras.optimizers import SGD
 
 from utils_class import timeit, safe_folder_creation
 from Class_Image import Image
@@ -29,6 +31,17 @@ from Class_Image import Image
 # ----------------------------------------------------------------------------------------------------------------------
 
 # ---------------- Training functions ----------------------------------------------------------------------------------
+
+def batched_forward_pass(data, model, batch_size=20):
+    len_data = data.shape[0]
+    a = vgg(data_left[0:batch_size])
+    
+    for i in range(batch_size, len_data, batch_size):
+        v = vgg(data_left[i:i+batch_size])
+        a = np.concatenate((a, v), 0)
+        
+    return a
+
 @timeit
 def simple_training(data_left, data_right, data_label,
                     model_function, model_function_args, folder_path, val_split, epochs, batch_size):
@@ -61,10 +74,32 @@ def simple_training(data_left, data_right, data_label,
 
     # Build model
     conv_model = model_function(*model_function_args)
-    train_data = [data_left, data_right]
-
+    #train_data = [data_left, data_right]
+    
+    vgg_trainable = 'block3_pool'
+    vgg_include_until = 'block4_pool'
+    
+    vgg = VGG19(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+    vgg_no_train = Model(inputs=vgg.input, outputs=vgg.get_layer(vgg_trainable).output)
+    
+    try:
+        embeddings_left = np.load(folder_path + "/embeddings_left_{}.npy".format(vgg_trainable))
+        embeddings_right = np.load(folder_path + "/embeddings_right_{}.npy".format(vgg_trainable))
+        print("Embeddings successfully loaded from files")
+        
+    except FileNotFoundError:
+        print("Creating and saving embeddings...")
+        embeddings_left = batched_forward_pass(data_left, vgg_no_train, batch_size)
+        embeddings_right = batched_forward_pass(data_right, vgg_no_train, batch_size)
+        
+        np.save(os.path.join(folder_path, "/embeddings_left_{}.npy".format(vgg_trainable)), embeddings_left)
+        np.save(os.path.join(folder_path, "/embeddings_right_{}.npy".format(vgg_trainable)), embeddings_right)
+        
+    return
+    train_data[embeddings_left, embeddings_right]
+    
     # Train model
-    model_fitted = conv_model.fit(train_data, data_label,
+    model_fitted = conv_model.fit(train_data, data_label, vgg_trainable=vgg_trainable,
                                   epochs=epochs, batch_size=batch_size, validation_split=val_split)
 
     # Save model and plots
@@ -175,8 +210,8 @@ def plot_validation_info_kfold(trained_model, i, save_folder):
     """
 
     # Getting statistics values
-    acc = trained_model.history['acc']
-    val_acc = trained_model.history['val_acc']
+    acc = trained_model.history['accuracy']
+    val_acc = trained_model.history['val_accuracy']
     loss = trained_model.history['loss']
     val_loss = trained_model.history['val_loss']
     epochs = range(1, len(acc) + 1)
@@ -209,8 +244,8 @@ def plot_validation_info(trained_model, save_folder):
     """
 
     # Getting statistics values
-    acc = trained_model.history['acc']
-    val_acc = trained_model.history['val_acc']
+    acc = trained_model.history['accuracy']
+    val_acc = trained_model.history['val_accuracy']
     loss = trained_model.history['loss']
     val_loss = trained_model.history['val_loss']
     epochs = range(1, len(acc) + 1)

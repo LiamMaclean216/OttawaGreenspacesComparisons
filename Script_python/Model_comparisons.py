@@ -8,10 +8,10 @@ Script used to define the comparisons model and trained it.
 import os
 import numpy as np
 
-from keras import Input, Model
-from keras.applications import VGG19
-from keras.layers import concatenate, Conv2D, Dropout, Flatten, Dense, BatchNormalization
-from keras.optimizers import SGD
+from tensorflow.keras import Input, Model
+from tensorflow.keras.applications import VGG19
+from tensorflow.keras.layers import concatenate, Conv2D, Dropout, Flatten, Dense, BatchNormalization
+from tensorflow.keras.optimizers import SGD
 
 from Class_training import simple_training
 from utils_class import shuffle_unison_arrays
@@ -20,7 +20,7 @@ from utils_class import shuffle_unison_arrays
 # ----------------------------------------------------------------------------------------------------------------------
 # Functions definitions
 # ----------------------------------------------------------------------------------------------------------------------
-def comparisons_model(img_size, weights=None):
+def comparisons_model(img_size, weights=None, embeddings=True, vgg_include_until='block4_pool', vgg_trainable='block4_pool'):
     """
     Create comparisons network which reproduce the choice in an images duel.
 
@@ -28,31 +28,65 @@ def comparisons_model(img_size, weights=None):
     :type img_size: tuple(int)
     :param weights: path to the weights use for initialization
     :type weights: str
+    :param vgg_outs: 
     :return: ranking comparisons model
     :rtype: keras.Model
     """
-    vgg_feature_extractor = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
+    if embeddings:
+        vgg = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
+        vgg_feature_extractor = Model(inputs=vgg.input, outputs=vgg.get_layer(vgg_include_until).output)
+    
+    
+        # Fine tuning by freezing all but the last 4 convolutional layers of VGG19 (last block)
+        for layer in vgg_feature_extractor.layers[:-4]:
+            layer.trainable = False
 
-    # Fine tuning by freezing the last 4 convolutional layers of VGG19 (last block)
-    for layer in vgg_feature_extractor.layers[:-4]:
-        layer.trainable = False
+        # Definition of the 2 inputs
+        img_a = Input(shape=(img_size, img_size, 3), name="left_image")
+        img_b = Input(shape=(img_size, img_size, 3), name="right_image")
+        out_a = vgg_feature_extractor(img_a)
+        out_b = vgg_feature_extractor(img_b)
+    
+    else:
+        if(vgg_trainable == 'block4_pool' or vgg_trainable == None):
+            out_a = Input(shape=(7, 7, 512), name="left_image")
+            out_b = Input(shape=(7, 7, 512), name="right_image")
+            
+        else:
+            vgg = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
+            #vgg_feature_extractor = Model(inputs=vgg.get_layer(vgg_trainable).output, outputs=vgg.output)
+            
+            #Create top (trainable) part of VGG model
+            inp = Input(shape = vgg.get_layer(vgg_trainable).output.shape[1:])
+            x=inp
+            flag = False
+            for l in vgg.layers:
+                if(flag):
+                    x=l(x)
 
-    # Definition of the 2 inputs
-    img_a = Input(shape=(img_size, img_size, 3), name="left_image")
-    img_b = Input(shape=(img_size, img_size, 3), name="right_image")
-    out_a = vgg_feature_extractor(img_a)
-    out_b = vgg_feature_extractor(img_b)
+                if(l.name == vgg_trainable):
+                    flag = True
 
+            vgg_feature_extractor = Model(inp, x)
+            print("done")
+                                          
+            img_a = Input(shape=vgg_feature_extractor.input.shape[1:], name="left_image")
+            img_b = Input(shape=vgg_feature_extractor.input.shape[1:], name="right_image")
+            out_a = vgg_feature_extractor(img_a)
+            out_b = vgg_feature_extractor(img_b)
+    
+                                          
     # Concatenation of the inputs
     concat = concatenate([out_a, out_b])
-
+    x = concat
     # Add convolution layers on top
-    x = Conv2D(512, (3, 3), activation='relu', padding='same', name="Conv_1")(concat)
+    x = BatchNormalization()(x)
+    x = Conv2D(256, (3, 3), activation='relu', padding='same', name="Conv_1")(x)
     x = Dropout(0.43, name="Drop_1")(x)
-    # x = BatchNormalization()(x)
-    x = Conv2D(512, (3, 3), activation='relu', padding='same', name="Conv_2")(x)
+    x = BatchNormalization()(x)
+    x = Conv2D(256, (3, 3), activation='relu', padding='same', name="Conv_2")(x)
     x = Dropout(0.49, name="Drop_2")(x)
-    # x = BatchNormalization()(x)
+    x = BatchNormalization()(x)
     x = Flatten()(x)
     x = Dense(2, activation='softmax', name="Final_dense")(x)
 
@@ -61,7 +95,7 @@ def comparisons_model(img_size, weights=None):
     if weights:
         classification_model.load_weights(weights)
 
-    sgd = SGD(lr=1e-5, decay=1e-6, momentum=0.695, nesterov=True)
+    sgd = SGD(learning_rate=1e-6, decay=1e-6, momentum=0.695, nesterov=True)
     classification_model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy'])
     return classification_model
 
