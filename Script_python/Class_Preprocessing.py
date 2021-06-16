@@ -222,7 +222,7 @@ def one_hot_it(labels, height, width, n_classes):
     return x
 
 
-@timeit
+#@timeit
 def preprocessing_duels(csv_path, img_size, image_folder, save_folder, test):
     """
     Create the inputs of the comparison network from the comparisons csv and save them as npy
@@ -251,18 +251,23 @@ def preprocessing_duels(csv_path, img_size, image_folder, save_folder, test):
     right_images = []
     labels = []
     labels_score = []
-
+    print(csv_path)
     # Get data from csv
     with open(csv_path, 'r') as csvfileReader:
         reader = csv.reader(csvfileReader, delimiter=',')
         print("Creating inputs from csv ...")
         pbar = progressbar.ProgressBar()
-        for line in pbar(reader):
+        #for r in reader:
+        #    print(r)
+
+        for line in reader:#pbar(reader):
             # Do not include No preference comparisons
             if line != [] and line[2] != 'No preference':
                 # Create Image instances
+                #print(line)
                 left_image_path = get_filename_from_key(line[0], image_folder)
                 right_image_path = get_filename_from_key(line[1], image_folder)
+                #print(left_image_path)
                 left_img = Ci.Image(left_image_path)
                 right_img = Ci.Image(right_image_path)
 
@@ -296,7 +301,9 @@ def preprocessing_duels(csv_path, img_size, image_folder, save_folder, test):
     np.save(os.path.join(test_folder, "test_right_{}".format(img_size)), np.array(test_right))
     np.save(os.path.join(test_folder, "test_labels_{}".format(img_size)), np.array(test_labels))
     np.save(os.path.join(test_folder, "test_labels_score_{}".format(img_size)), np.array(test_labels_score))
-
+    
+    del test_left, test_right, test_labels,test_labels_score
+    
     print("Done\nSaving train set ...")
     # Create training dataset
     train_left = np.array(left_images[nb_test:])
@@ -308,12 +315,14 @@ def preprocessing_duels(csv_path, img_size, image_folder, save_folder, test):
     train_folder = os.path.join(save_folder, "train")
     train_folder = safe_folder_creation(train_folder)
     np.save(os.path.join(train_folder, "train_left_{}".format(img_size)), np.array(train_left))
+    del train_left
     np.save(os.path.join(train_folder, "train_right_{}".format(img_size)), np.array(train_right))
+    del train_right
     np.save(os.path.join(train_folder, "train_labels_{}".format(img_size)), np.array(train_labels))
     np.save(os.path.join(train_folder, "train_labels_score_{}".format(img_size)), np.array(train_labels_score))
     print("Done")
 
-    return train_left, train_right, train_labels, train_labels_score
+   #return train_left, train_right, train_labels, train_labels_score
 
 
 @timeit

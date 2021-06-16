@@ -61,7 +61,7 @@ def simple_training(data_left, data_right, data_label,
 
     # Build model
     conv_model = model_function(*model_function_args)
-    train_data = [data_left, data_right]
+    train_data = np.stack([data_left, data_right], 0)#[data_left, data_right]
 
     # Train model
     model_fitted = conv_model.fit(train_data, data_label,
