@@ -24,18 +24,26 @@ from keras.applications.imagenet_utils import preprocess_input
 # Functions definitions
 # ----------------------------------------------------------------------------------------------------------------------
 
-def preprocessing_layers(a):
+def preprocessing_layers(a, hp):
     #a = preprocess_input(a)#Rescaling(1/255)(a)
-    a = RandomTranslation( 0.2, 0.2, fill_mode="reflect",interpolation="bilinear",)(a)
+    translate = hp.Float("translate", 0, 0.5, step=0.1, default=0.2)
+    a = RandomTranslation( 
+        #hp.Float("t_x", 0, 0.5, step=0.1, default=0.2), 
+        #hp.Float("t_y", 0, 0.5, step=0.1, default=0.2), 
+        translate,
+        translate,
+        fill_mode="reflect",interpolation="bilinear",)(a)
     a = RandomFlip()(a)
-    a = RandomZoom(0.25)(a)
-    a = RandomRotation(2)(a)
+    a = RandomZoom(hp.Float("zoom", 0, 0.5, step=0.1, default=0.25))(a)
+    a = RandomRotation(hp.Float("rotation", 0, 2, step=0.1, default=2))(a)
     #a = RandomHeight(0.2)(a)
     #a = RandomWidth(0.2)(a)
     
     return a
     
-def comparisons_model(img_size, weights=None):
+def comparisons_model(hp):
+    img_size=224
+    weights=None
     """
     Create comparisons network which reproduce the choice in an images duel.
 
@@ -58,24 +66,30 @@ def comparisons_model(img_size, weights=None):
     
     #feature_extractor = ResNet152V2(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
     # Fine tuning by freezing the last 4 convolutional layers of VGG19 (last block)
-    #for layer in feature_extractor.layers[:-8]:
-    #    layer.trainable = False
+    for layer in feature_extractor.layers[:-hp.Int(
+        'layers_frozen',
+        min_value=0,
+        max_value=22,
+        step=2,
+        default=8
+    )]:
+        layer.trainable = False
     #feature_extractor.trainable = False
 
     # Definition of the 2 inputs
     img_a = Input(shape=(224*224*3), name="data_left")
     out_a = Reshape((224,224,3), input_shape=(224*224*3,))(img_a)
-    out_a = preprocessing_layers(out_a)
+    out_a = preprocessing_layers(out_a, hp)
     
     
     img_b = Input(shape=(224*224*3), name="data_right")
     out_b = Reshape((224,224,3), input_shape=(224*224*3,))(img_b)
-    out_b = preprocessing_layers(out_b)
+    out_b = preprocessing_layers(out_b, hp)
     
     
     out_a = feature_extractor(out_a)
     out_b = feature_extractor(out_b)
-
+    
     #out_a = AveragePooling2D(pool_size=(7, 7))(out_a)
     #out_b = AveragePooling2D(pool_size=(7, 7))(out_b)
     # Concatenation of the inputs
@@ -85,14 +99,15 @@ def comparisons_model(img_size, weights=None):
     
    # x = cbam_block(x)
     # Add convolution layers on top
+    dropout = hp.Float("dropout", 0, 0.5, step=0.1, default=0.5)
     x = BatchNormalization()(x)
     x = Conv2D(256, (3, 3), activation='relu', padding='same', name="Conv_1")(x)
     x = BatchNormalization()(x)
-    x = Dropout(0.75, name="Drop_1")(x)
+    x = Dropout(dropout)(x)
     
     x = Conv2D(256, (3, 3), activation='relu', padding='same', name="Conv_2")(x)
     x = BatchNormalization()(x)
-    x = Dropout(0.75, name="Drop_2")(x)
+    x =Dropout(dropout)(x)
     x = Flatten()(x)
     #Dropout(0.75, name="Drop_1")(x)
     #x = Dense(4096, activation='relu', kernel_initializer='glorot_normal', name="Dense1")(x)
@@ -104,7 +119,7 @@ def comparisons_model(img_size, weights=None):
     #Dropout(0.5, name="Drop_1")(x)
     
     x = Dense(256, activation='relu', kernel_initializer='glorot_normal', name="Dense2")(x)
-    Dropout(0.5, name="Drop_2")(x)
+    x = Dropout(dropout)(x)
     
     #Dropout(0.75, name="Drop_3")(x)
     #x = Dense(1000, activation='relu', kernel_initializer='glorot_normal', name="Dense1")(x)
@@ -117,7 +132,9 @@ def comparisons_model(img_size, weights=None):
 
     #sgd = SGD(lr=1e-5, decay=1e-6, momentum=0.695, nesterov=True)
     
-    classification_model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=1e-5), metrics=['accuracy'])
+    classification_model.compile(loss='categorical_crossentropy', 
+                                 optimizer=Adam(hp.Float("learning_rate", 1e-6, 1e-4, sampling="log")), 
+                                 metrics=['accuracy'])
     return classification_model
 
 def ranking_model(img_size, weights=None):

@@ -253,6 +253,8 @@ class Image:
         :rtype: np.array
         """
         img = cv2.imread(self.path)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
         img_resized = cv2.resize(img, (img_size, img_size))
         img_norm = normalized(img_resized)
         return img_norm
