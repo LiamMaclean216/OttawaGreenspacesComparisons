@@ -21,7 +21,8 @@ from keras.preprocessing import image as ki
 
 from Class_Equirec2Perspec import Equirectangular
 
-
+from PIL import Image as PIL_Image
+import requests
 # ----------------------------------------------------------------------------------------------------------------------
 # Class definition
 # ----------------------------------------------------------------------------------------------------------------------
@@ -65,7 +66,7 @@ class Image:
         self.datetime = ""
 
         if build_array:
-            self.array = cv2.imread(self.path)
+            self.array = self.imread(self.path)
             self.shape = self.array.shape
             self.width = self.shape[0]
             self.height = self.shape[1]
@@ -97,7 +98,14 @@ class Image:
         s += "\nBlurry : " + str(self.blurry)
         s += "\nShape : " + str(self.shape)
         return s
-
+    
+    #Give image array from url or filepath
+    def imread(self, path):
+        if path.startswith("http"):
+            i = PIL_Image.open(requests.get(path, stream=True).raw)
+            return np.array(i)
+        return cv2.imread(path)
+    
     # Image analyses methods
     def is_overexposed(self):
         """
@@ -149,7 +157,7 @@ class Image:
         bad = False
 
         # Compute image array and change to HSV colorspace
-        bgr = cv2.imread(self.path)
+        bgr = self.imread(self.path)
         hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
 
         # Compute histogram
@@ -252,7 +260,7 @@ class Image:
         :return: preprocessed image, resized and normalized
         :rtype: np.array
         """
-        img = cv2.imread(self.path)
+        img = self.imread(self.path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         img_resized = cv2.resize(img, (img_size, img_size))
@@ -490,7 +498,7 @@ class Panorama(Image):
 
         # Get images arrays
         for img in self.four_images:
-            img_array = cv2.imread(img.path)
+            img_array = self.imread(img.path)
             images.append(img_array)
 
         # Initialization of the figure

@@ -8,9 +8,9 @@ Script used to define the comparisons model and trained it.
 import os
 import numpy as np
 
-from keras import Input, Model
+from keras import Input, Model, Sequential
 from keras.applications import VGG19, ResNet152V2, ResNet50V2, VGG16, Xception
-from keras.layers import concatenate, Conv2D, Dropout, Flatten, Dense, BatchNormalization, AveragePooling2D, Reshape
+from keras.layers import concatenate, Conv2D, Dropout, Flatten, Dense, BatchNormalization, AveragePooling2D, Reshape, Activation, Subtract, Concatenate
 from keras.optimizers import SGD, Adam
 
 from Class_training import simple_training
@@ -40,7 +40,11 @@ def preprocessing_layers(a, hp):
     #a = RandomWidth(0.2)(a)
     
     return a
-    
+
+data_augmentation = Sequential([
+                                RandomFlip("horizontal_and_vertical"),
+                                RandomRotation((0,0.5), fill_mode='constant')
+])
 def comparisons_model(hp):
     img_size=224
     weights=None
@@ -61,83 +65,64 @@ def comparisons_model(hp):
     #feature_extractor = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
     #feature_extractor = Model(inputs=vgg_feature_extractor.input, outputs=feature_extractor.get_layer(vgg_include_until).output)
     
-    feature_extractor = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
-    
-    
-    #feature_extractor = ResNet152V2(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
+    vgg_feature_extractor = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
+
     # Fine tuning by freezing the last 4 convolutional layers of VGG19 (last block)
-    for layer in feature_extractor.layers[:-hp.Int(
+    for layer in vgg_feature_extractor.layers[:-hp.Int(
         'layers_frozen',
         min_value=0,
         max_value=22,
         step=2,
-        default=8
+        default=4
     )]:
         layer.trainable = False
-    #feature_extractor.trainable = False
 
     # Definition of the 2 inputs
     img_a = Input(shape=(224*224*3), name="data_left")
     out_a = Reshape((224,224,3), input_shape=(224*224*3,))(img_a)
-    out_a = preprocessing_layers(out_a, hp)
-    
     
     img_b = Input(shape=(224*224*3), name="data_right")
     out_b = Reshape((224,224,3), input_shape=(224*224*3,))(img_b)
-    out_b = preprocessing_layers(out_b, hp)
     
-    
-    out_a = feature_extractor(out_a)
-    out_b = feature_extractor(out_b)
-    
-    #out_a = AveragePooling2D(pool_size=(7, 7))(out_a)
-    #out_b = AveragePooling2D(pool_size=(7, 7))(out_b)
+    out_a = data_augmentation(out_a)
+    out_b = data_augmentation(out_b)
+
+    out_a = vgg_feature_extractor(out_a)
+    out_b = vgg_feature_extractor(out_b)
+
     # Concatenation of the inputs
-    
     concat = concatenate([out_a, out_b])
-    x = concat
-    
-   # x = cbam_block(x)
+
     # Add convolution layers on top
-    dropout = hp.Float("dropout", 0, 0.5, step=0.1, default=0.5)
+    x = Conv2D(1024, (3, 3), padding='same', name="Conv_1")(concat)
     x = BatchNormalization()(x)
-    x = Conv2D(256, (3, 3), activation='relu', padding='same', name="Conv_1")(x)
+    x = Activation('relu', name='Activation_1')(x)
+    x = Dropout(0.66, name="Drop_1")(x)
+    x = Conv2D(512, (3, 3), padding='same', name="Conv_2")(x)
     x = BatchNormalization()(x)
-    x = Dropout(dropout)(x)
-    
-    x = Conv2D(256, (3, 3), activation='relu', padding='same', name="Conv_2")(x)
+    x = Activation('relu', name='Activation_2')(x)
+    x = Conv2D(256, (3, 3), padding='same', name="Conv_3")(x)
     x = BatchNormalization()(x)
-    x =Dropout(dropout)(x)
+    x = Activation('relu', name='Activation_3')(x)
+    x = Conv2D(128, (3, 3), padding='same', name="Conv_4")(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu', name='Activation_4')(x)
+    x = Dropout(0.5, name="Drop_2")(x)
     x = Flatten()(x)
-    #Dropout(0.75, name="Drop_1")(x)
-    #x = Dense(4096, activation='relu', kernel_initializer='glorot_normal', name="Dense1")(x)
-    
-    #x = AveragePooling2D(pool_size=(7, 7))
-    #x = Flatten()(x)
-    
-    #x = Dense(512, activation='relu', kernel_initializer='glorot_normal', name="Dense1")(x)
-    #Dropout(0.5, name="Drop_1")(x)
-    
-    x = Dense(256, activation='relu', kernel_initializer='glorot_normal', name="Dense2")(x)
-    x = Dropout(dropout)(x)
-    
-    #Dropout(0.75, name="Drop_3")(x)
-    #x = Dense(1000, activation='relu', kernel_initializer='glorot_normal', name="Dense1")(x)
-    
     x = Dense(2, activation='softmax', name="Final_dense")(x)
+
     classification_model = Model([img_a, img_b], x)
-
-    if weights:
-        classification_model.load_weights(weights)
-
-    #sgd = SGD(lr=1e-5, decay=1e-6, momentum=0.695, nesterov=True)
-    
+    #if weigths is not None:
+    #    classification_model.load_weights(weigths)
+    #sgd = SGD(learning_rate=1e-5, decay=1e-6, momentum=0.3, nesterov=True)
     classification_model.compile(loss='categorical_crossentropy', 
                                  optimizer=Adam(hp.Float("learning_rate", 1e-6, 1e-4, sampling="log")), 
                                  metrics=['accuracy'])
     return classification_model
 
 def ranking_model(img_size, weights=None):
+    img_size=224
+    weights=None
     """
     Create comparisons network which reproduce the choice in an images duel.
 
@@ -155,55 +140,62 @@ def ranking_model(img_size, weights=None):
     #feature_extractor = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
     #feature_extractor = Model(inputs=vgg_feature_extractor.input, outputs=feature_extractor.get_layer(vgg_include_until).output)
     
-    feature_extractor = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
-    
-    
-    #feature_extractor = ResNet152V2(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
+    vgg_feature_extractor = VGG19(weights='imagenet', include_top=False, input_shape=(img_size, img_size, 3))
+
     # Fine tuning by freezing the last 4 convolutional layers of VGG19 (last block)
-    #for layer in feature_extractor.layers[:-8]:
+    #for layer in vgg_feature_extractor.layers[:-hp.Int(
+    #    'layers_frozen',
+    #    min_value=0,
+    #    max_value=22,
+    #    step=2,
+    #   default=4
+    #)]:
     #    layer.trainable = False
-    #feature_extractor.trainable = False
 
     # Definition of the 2 inputs
-    img = Input(shape=(224*224*3), name="data")
-    x = Reshape((224,224,3), input_shape=(224*224*3,))(img)
-    x = preprocessing_layers(x)
+    img_a = Input(shape=(224*224*3), name="data_left")
+    out_a = Reshape((224,224,3), input_shape=(224*224*3,))(img_a)
     
+    img_b = Input(shape=(224*224*3), name="data_right")
+    out_b = Reshape((224,224,3), input_shape=(224*224*3,))(img_b)
     
-    x = feature_extractor(x)
-   # x = cbam_block(x)
-    # Add convolution layers on top
-    x = BatchNormalization()(x)
-    x = Conv2D(256, (3, 3), activation='relu', padding='same', name="Conv_1")(x)
-    x = BatchNormalization()(x)
-    x = Dropout(0.75, name="Drop_1")(x)
-    
-    x = Conv2D(256, (3, 3), activation='relu', padding='same', name="Conv_2")(x)
-    x = BatchNormalization()(x)
-    x = Dropout(0.75, name="Drop_2")(x)
-    x = Flatten()(x)
-    #Dropout(0.75, name="Drop_1")(x)
-    #x = Dense(4096, activation='relu', kernel_initializer='glorot_normal', name="Dense1")(x)
-    
-    #x = AveragePooling2D(pool_size=(7, 7))
-    #x = Flatten()(x)
-    
-    #x = Dense(512, activation='relu', kernel_initializer='glorot_normal', name="Dense1")(x)
-    #Dropout(0.5, name="Drop_1")(x)
-    
-    x = Dense(256, activation='relu', kernel_initializer='glorot_normal', name="Dense2")(x)
-    Dropout(0.75, name="Drop_2")(x)
-    
-    #Dropout(0.75, name="Drop_3")(x)
-    #x = Dense(1000, activation='relu', kernel_initializer='glorot_normal', name="Dense1")(x)
-    
-    x = Dense(1, activation=None, name="Final_dense")(x)
-    classification_model = Model(img, x)
+    out_a = data_augmentation(out_a)
+    out_b = data_augmentation(out_b)
 
-    if weights:
-        classification_model.load_weights(weights)
+    out_a = vgg_feature_extractor(out_a)
+    out_b = vgg_feature_extractor(out_b)
 
-    #sgd = SGD(lr=1e-5, decay=1e-6, momentum=0.695, nesterov=True)
+    # Concatenation of the inputs
     
-    classification_model.compile(loss='mse', optimizer=Adam(learning_rate=1e-5), metrics=['mae'])
+    def ranking_layers(x, name):
+        x = Flatten()(x)
+        x = Dense(4096, name="Dense_1_{}".format(name))(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu', name='Activation_1_{}'.format(name))(x)
+        x = Dropout(0.5, name="Drop_1_{}".format(name))(x)
+        
+        x = Dense(4096, name="Dense_2_{}".format(name))(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu', name='Activation_2_{}'.format(name))(x)
+        x = Dropout(0.5, name="Drop_2_{}".format(name))(x)
+        
+        x = Dense(1, name="Dense_3_{}".format(name))(x)
+        return x
+    
+    out_a = ranking_layers(out_a, "a")
+    out_b = ranking_layers(out_b, "b")
+    #concat = concatenate([out_a, out_b])
+    x = Subtract()([out_a, out_b])
+    x = Activation('sigmoid', name='Activation_2')(x)
+    
+    
+    #x=Concatenate(axis=-1)[x, Subtract()([1, x])]
+    x=Concatenate(axis=-1)([x, Subtract()([np.array([1.0]), x])])
+    classification_model = Model([img_a, img_b], x)
+    #if weigths is not None:
+    #    classification_model.load_weights(weigths)
+    #sgd = SGD(learning_rate=1e-5, decay=1e-6, momentum=0.3, nesterov=True)
+    classification_model.compile(loss='categorical_crossentropy', 
+                                 optimizer=Adam(5e-5), 
+                                 metrics=['accuracy'])
     return classification_model
